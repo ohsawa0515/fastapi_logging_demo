@@ -2,6 +2,7 @@ import time
 import datetime
 import sys
 import json
+import traceback
 from logging import getLogger, StreamHandler, DEBUG
 from typing import Callable
 from fastapi import FastAPI, Request, Response, HTTPException
@@ -29,9 +30,11 @@ class LoggingContextRoute(APIRoute):
                 response: Response = await original_route_handler(request)
             except StarletteHTTPException as e:
                 record["error"] = e.detail
+                record["traceback"] = traceback.format_exc().splitlines()
                 raise
             except RequestValidationError as e:
                 record["error"] = e.errors()
+                record["traceback"] = traceback.format_exc().splitlines()
                 raise
             finally:
                 duration = round(time.time() - before, 4)
