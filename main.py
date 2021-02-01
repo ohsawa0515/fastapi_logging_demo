@@ -4,10 +4,11 @@ import sys
 import json
 from logging import getLogger, StreamHandler, DEBUG
 from typing import Callable
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
-
 
 logger = getLogger(__name__)
 handler = StreamHandler(sys.stdout)
@@ -22,27 +23,38 @@ class LoggingContextRoute(APIRoute):
 
         async def custom_route_handler(request: Request) -> Response:
             before = time.time()
-            response: Response = await original_route_handler(request)
-            duration = round(time.time() - before, 4)
-
             record = {}
-            time_local = datetime.datetime.fromtimestamp(before)
-            record["time_local"] = time_local.strftime("%Y/%m/%d %H:%M:%S%Z")
-            if await request.body():
-                record["request_body"] = (await request.body()).decode("utf-8")
-            record["request_headers"] = {
-                k.decode("utf-8"): v.decode("utf-8") for (k, v) in request.headers.raw
-            }
-            record["remote_addr"] = request.client.host
-            record["request_uri"] = request.url.path
-            record["request_method"] = request.method
-            record["request_time"] = str(duration)
-            record["status"] = response.status_code
-            record["response_body"] = response.body.decode("utf-8")
-            record["response_headers"] = {
-                k.decode("utf-8"): v.decode("utf-8") for (k, v) in response.headers.raw
-            }
-            logger.info(json.dumps(record))
+            response = None
+            try:
+                response: Response = await original_route_handler(request)
+            except StarletteHTTPException as e:
+                record["error"] = e.detail
+                raise
+            except RequestValidationError as e:
+                record["error"] = e.errors()
+                raise
+            finally:
+                duration = round(time.time() - before, 4)
+                time_local = datetime.datetime.fromtimestamp(before)
+                record["time_local"] = time_local.strftime(
+                    "%Y/%m/%d %H:%M:%S%Z")
+                if await request.body():
+                    record["request_body"] = (await request.body()).decode("utf-8")
+                record["request_headers"] = {
+                    k.decode("utf-8"): v.decode("utf-8") for (k, v) in request.headers.raw
+                }
+                record["remote_addr"] = request.client.host
+                record["request_uri"] = request.url.path
+                record["request_method"] = request.method
+                record["request_time"] = str(duration)
+                if response is not None:
+                    record["status"] = response.status_code
+                    record["response_body"] = response.body.decode("utf-8")
+                    record["response_headers"] = {
+                        k.decode("utf-8"): v.decode("utf-8") for (k, v) in response.headers.raw
+                    }
+                logger.info(json.dumps(record))
+
             return response
 
         return custom_route_handler
@@ -76,3 +88,13 @@ def post_item(item: Item):
 @app.put("/items/{item_id}")
 def update_item(item_id: int, item: Item):
     return {"item_name": item.name, "item_id": item_id}
+
+
+@app.get("/exception")
+def occur_exception():
+    raise HTTPException(status_code=500, detail='GET error!')
+
+
+@app.post("/exception")
+def occur_exception_post():
+    raise HTTPException(status_code=500, detail='POST error!')
