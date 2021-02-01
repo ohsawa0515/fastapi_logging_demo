@@ -42,7 +42,7 @@ class LoggingContextRoute(APIRoute):
                 record["time_local"] = time_local.strftime(
                     "%Y/%m/%d %H:%M:%S%Z")
                 if await request.body():
-                    record["request_body"] = (await request.body()).decode("utf-8")
+                    record["request_body"] = json.loads((await request.body()).decode("utf-8"))
                 record["request_headers"] = {
                     k.decode("utf-8"): v.decode("utf-8") for (k, v) in request.headers.raw
                 }
@@ -52,7 +52,8 @@ class LoggingContextRoute(APIRoute):
                 record["request_time"] = str(duration)
                 if response is not None:
                     record["status"] = response.status_code
-                    record["response_body"] = response.body.decode("utf-8")
+                    record["response_body"] = json.loads(
+                        response.body.decode("utf-8"))
                     record["response_headers"] = {
                         k.decode("utf-8"): v.decode("utf-8") for (k, v) in response.headers.raw
                     }
