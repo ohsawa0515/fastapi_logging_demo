@@ -1,67 +1,6 @@
-import time
-import datetime
-import sys
-import json
-import traceback
-from logging import getLogger, StreamHandler, DEBUG
-from typing import Callable
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.exceptions import RequestValidationError
-from fastapi.routing import APIRoute
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
-logger = getLogger(__name__)
-handler = StreamHandler(sys.stdout)
-handler.setLevel(DEBUG)
-logger.addHandler(handler)
-logger.setLevel(DEBUG)
-
-
-class LoggingContextRoute(APIRoute):
-    def get_route_handler(self) -> Callable:
-        original_route_handler = super().get_route_handler()
-
-        async def custom_route_handler(request: Request) -> Response:
-            before = time.time()
-            record = {}
-            response = None
-            try:
-                response: Response = await original_route_handler(request)
-            except StarletteHTTPException as e:
-                record["error"] = e.detail
-                record["traceback"] = traceback.format_exc().splitlines()
-                raise
-            except RequestValidationError as e:
-                record["error"] = e.errors()
-                record["traceback"] = traceback.format_exc().splitlines()
-                raise
-            finally:
-                duration = round(time.time() - before, 4)
-                time_local = datetime.datetime.fromtimestamp(before)
-                record["time_local"] = time_local.strftime(
-                    "%Y/%m/%d %H:%M:%S%Z")
-                if await request.body():
-                    record["request_body"] = json.loads((await request.body()).decode("utf-8"))
-                record["request_headers"] = {
-                    k.decode("utf-8"): v.decode("utf-8") for (k, v) in request.headers.raw
-                }
-                record["remote_addr"] = request.client.host
-                record["request_uri"] = request.url.path
-                record["request_method"] = request.method
-                record["request_time"] = str(duration)
-                if response is not None:
-                    record["status"] = response.status_code
-                    record["response_body"] = json.loads(
-                        response.body.decode("utf-8"))
-                    record["response_headers"] = {
-                        k.decode("utf-8"): v.decode("utf-8") for (k, v) in response.headers.raw
-                    }
-                logger.info(json.dumps(record))
-
-            return response
-
-        return custom_route_handler
+from logging_context import LoggingContextRoute
 
 
 app = FastAPI()
