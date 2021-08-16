@@ -19,8 +19,9 @@ class Item(BaseModel):
 
 
 class S3Hoge():
-    def head(self, client: S3Client, bucket, key: str) -> bool:
+    def head(self, bucket, key: str) -> bool:
         try:
+            client = boto3.client("s3")
             client.head_object(Bucket=bucket, Key=key)
             return True
         except ClientError as e:
@@ -76,9 +77,9 @@ def occur_exception_post():
 
 
 @app.get("/files/{name}")
-def get_file(name: str, s3_hoge: S3Hoge = Depends(), s3_client=Depends(s3_client)):
+def get_file(name: str, s3_hoge: S3Hoge = Depends()):
     try:
-        result = s3_hoge.head(s3_client, S3_BUCKET, name)
+        result = s3_hoge.head(S3_BUCKET, name)
         return {"exists": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

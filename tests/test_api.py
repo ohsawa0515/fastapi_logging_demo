@@ -21,28 +21,40 @@ def mock_s3_client():
         yield client
 
 
+class MockS3Hoge():
+    def head(self, bucket, key: str) -> bool:
+        return True
+
+
+def override_s3_hoge():
+    s3_hoge = MockS3Hoge(S3_BUCKET, "foo.txt")
+    yield s3_hoge
+
+
 client = TestClient(app)
+app.dependency_overrides[main.S3Hoge] = MockS3Hoge
 
 
 def mock(f):
     def func(mock_s3_client, *args, **kwargs):
 
-        def override_s3_client():
-            yield mock_s3_client
+        def override_s3_hoge():
+            s3_hoge = MockS3Hoge(S3_BUCKET, "foo.txt")
+            yield s3_hoge
 
-        app.dependency_overrides[main.s3_client] = override_s3_client
+        app.dependency_overrides[main.S3Hoge.head] = override_s3_hoge
 
         # Run tests
         f(*args, **kwargs)
 
-        app.dependency_overrides[main.s3_client] = main.s3_client
+        app.dependency_overrides[main.S3Hoge.head] = main.S3Hoge.head
     return func
 
 
-@mock
+# @mock
 def test_get_file():
-    # response = client.get("/files/foo.txt")
-    # assert response.status_code == 200
+    response = client.get("/files/foo.txt")
+    assert response.status_code == 200
     assert 1 == True
 
 
