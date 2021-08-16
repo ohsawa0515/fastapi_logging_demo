@@ -2,7 +2,6 @@ import boto3
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from logging_context import LoggingContextRoute
-from boto3_type_annotations.s3 import Client as S3Client
 from botocore.exceptions import ClientError
 
 
@@ -18,32 +17,19 @@ class Item(BaseModel):
     is_offer: bool = None
 
 
-class S3Hoge():
+class S3():
+    def __init__(self):
+        self.client = boto3.client("s3")
+
     def head(self, bucket, key: str) -> bool:
         try:
-            client = boto3.client("s3")
-            client.head_object(Bucket=bucket, Key=key)
+            self.client.head_object(Bucket=bucket, Key=key)
             return True
         except ClientError as e:
             if e.response['Error']['Code'] == '404':
                 return False
             else:
                 raise e
-
-
-def s3_client() -> S3Client:
-    return boto3.client("s3")
-
-
-def s3_head(client: S3Client, bucket, key: str) -> bool:
-    try:
-        client.head_object(Bucket=bucket, Key=key)
-        return True
-    except ClientError as e:
-        if e.response['Error']['Code'] == '404':
-            return False
-        else:
-            raise e
 
 
 @app.get("/")
@@ -77,9 +63,9 @@ def occur_exception_post():
 
 
 @app.get("/files/{name}")
-def get_file(name: str, s3_hoge: S3Hoge = Depends()):
+def get_file(name: str, s3: S3 = Depends()):
     try:
-        result = s3_hoge.head(S3_BUCKET, name)
+        result = s3.head(S3_BUCKET, name)
         return {"exists": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
