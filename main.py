@@ -1,7 +1,11 @@
+import boto3
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from logging_context import LoggingContextRoute
+from boto3_type_annotations.s3 import Client as S3Client
+from botocore.exceptions import ClientError
 
+S3_BUCKET = 'shu0515-fastapi-test'
 
 app = FastAPI()
 app.router.route_class = LoggingContextRoute
@@ -11,6 +15,17 @@ class Item(BaseModel):
     name: str
     price: float
     is_offer: bool = None
+
+
+def s3_head(client: S3Client, bucket, key: str) -> bool:
+    try:
+        client.head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError as e:
+        if e.response['Error']['Code'] == '404':
+            return False
+        else:
+            raise e
 
 
 @app.get("/")
@@ -41,3 +56,13 @@ def occur_exception():
 @app.post("/exception")
 def occur_exception_post():
     raise HTTPException(status_code=500, detail='POST error!')
+
+
+@app.get("/files/{name}")
+def get_file(name: str):
+    try:
+        s3_client = boto3.client("s3")
+        result = s3_head(s3_client, S3_BUCKET, name)
+        return {"exists": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
