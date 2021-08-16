@@ -1,11 +1,31 @@
 import boto3
+import main
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 from moto import mock_s3
 
 S3_BUCKET = 'test-bucket-foo'
 
+
+@pytest.fixture()
+def mock_s3_client():
+    with mock_s3():
+        yield boto3.client("s3")
+
+
 client = TestClient(app)
+app.dependency_overrides[main.s3_client] = mock_s3_client
+
+
+def test_get_file(mock_s3_client):
+    mock_s3_client.create_bucket(Bucket=S3_BUCKET,
+                                 CreateBucketConfiguration={
+                                     'LocationConstraint': 'ap-northeast-1'
+                                 })
+    mock_s3_client.upload_file("tests/foo.txt", S3_BUCKET, "foo.txt")
+    # response = client.get("/files/foo.txt")
+    # assert response.status_code == 200
 
 
 class TestApi:
@@ -57,14 +77,3 @@ class TestApi:
     def test_post_exception(self):
         response = client.post("/exception")
         assert response.status_code == 500
-
-    @mock_s3
-    def test_get_file(self):
-        s3_client = boto3.client("s3")
-        s3_client.create_bucket(Bucket=S3_BUCKET,
-                                CreateBucketConfiguration={
-                                    'LocationConstraint': 'ap-northeast-1'
-                                })
-        s3_client.upload_file("tests/foo.txt", S3_BUCKET, "foo.txt")
-        response = client.get("/files/foo.txt")
-        assert response.status_code == 200

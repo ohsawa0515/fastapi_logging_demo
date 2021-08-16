@@ -1,5 +1,5 @@
 import boto3
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from logging_context import LoggingContextRoute
 from boto3_type_annotations.s3 import Client as S3Client
@@ -15,6 +15,10 @@ class Item(BaseModel):
     name: str
     price: float
     is_offer: bool = None
+
+
+def s3_client() -> S3Client:
+    return boto3.client("s3")
 
 
 def s3_head(client: S3Client, bucket, key: str) -> bool:
@@ -59,9 +63,8 @@ def occur_exception_post():
 
 
 @app.get("/files/{name}")
-def get_file(name: str):
+def get_file(name: str, s3_client=Depends(s3_client)):
     try:
-        s3_client = boto3.client("s3")
         result = s3_head(s3_client, S3_BUCKET, name)
         return {"exists": result}
     except Exception as e:
