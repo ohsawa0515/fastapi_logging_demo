@@ -11,21 +11,39 @@ S3_BUCKET = 'test-bucket-foo'
 @pytest.fixture()
 def mock_s3_client():
     with mock_s3():
-        yield boto3.client("s3")
+        client = boto3.client("s3")
+        client.create_bucket(Bucket=S3_BUCKET,
+                             CreateBucketConfiguration={
+                                 'LocationConstraint': 'ap-northeast-1'
+                             })
+        client.upload_file("tests/foo.txt", S3_BUCKET, "foo.txt")
+        assert len(client.list_buckets()['Buckets']) == 1
+        yield client
 
 
 client = TestClient(app)
-app.dependency_overrides[main.s3_client] = mock_s3_client
 
 
-def test_get_file(mock_s3_client):
-    mock_s3_client.create_bucket(Bucket=S3_BUCKET,
-                                 CreateBucketConfiguration={
-                                     'LocationConstraint': 'ap-northeast-1'
-                                 })
-    mock_s3_client.upload_file("tests/foo.txt", S3_BUCKET, "foo.txt")
+def mock(f):
+    def func(mock_s3_client, *args, **kwargs):
+
+        def override_s3_client():
+            yield mock_s3_client
+
+        app.dependency_overrides[main.s3_client] = override_s3_client
+
+        # Run tests
+        f(*args, **kwargs)
+
+        app.dependency_overrides[main.s3_client] = main.s3_client
+    return func
+
+
+@mock
+def test_get_file():
     # response = client.get("/files/foo.txt")
     # assert response.status_code == 200
+    assert 1 == True
 
 
 class TestApi:
