@@ -31,6 +31,16 @@ class S3():
             else:
                 raise e
 
+    def get(self, bucket, key: str) -> str:
+        try:
+            body = self.client.get_object(Bucket=bucket, Key=key)['Body'].read()
+            return body.decode('utf-8')
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchKey':
+                return ""
+            else:
+                raise e
+
 
 @app.get("/")
 def read_root():
@@ -62,10 +72,19 @@ def occur_exception_post():
     raise HTTPException(status_code=500, detail='POST error!')
 
 
-@app.get("/files/{name}")
-def get_file(name: str, s3: S3 = Depends()):
+@app.get("/files/exists/{name}")
+def get_exists_file(name: str, s3: S3 = Depends()):
     try:
         result = s3.head(S3_BUCKET, name)
         return {"exists": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/files/{name}")
+def get_file(name: str, s3: S3 = Depends()):
+    try:
+        result = s3.get(S3_BUCKET, name)
+        return {"message": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

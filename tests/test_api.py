@@ -9,6 +9,9 @@ class MockS3():
     def head(self, bucket, key: str) -> bool:
         return True
 
+    def get(self, bucket, key: str) -> str:
+        return "test foo"
+
 
 client = TestClient(app)
 app.dependency_overrides[main.S3] = MockS3
@@ -64,9 +67,16 @@ class TestApi:
         response = client.post("/exception")
         assert response.status_code == 500
 
+    def test_exists_file(self):
+        response = client.get("/files/exists/foo.txt")
+        assert response.status_code == 200
+        assert response.json() == {
+            "exists": True,
+        }
+
     def test_get_file(self):
         response = client.get("/files/foo.txt")
         assert response.status_code == 200
         assert response.json() == {
-            "exists": True,
+            "message": "test foo",
         }
