@@ -3,13 +3,16 @@ import time
 import datetime
 import json
 import traceback
+import asyncio
 from typing import Callable, Optional
 from logging import getLogger, StreamHandler, DEBUG
 from fastapi import Request, Response
 from fastapi.routing import APIRoute
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.status import HTTP_504_GATEWAY_TIMEOUT
 
+TIMEOUT = 10
 
 logger = getLogger(__name__)
 handler = StreamHandler(sys.stdout)
@@ -50,7 +53,7 @@ class LoggingContextRoute(APIRoute):
             self, request: Request,
             route_handler: Callable, record: dict) -> Response:
         try:
-            response: Response = await route_handler(request)
+            response: Response = await self._wait_for_request(request, route_handler)
         except StarletteHTTPException as exc:
             record["error"] = exc.detail
             record["status"] = exc.status_code
@@ -61,6 +64,14 @@ class LoggingContextRoute(APIRoute):
             record["traceback"] = traceback.format_exc().splitlines()
             raise
         return response
+
+    async def _wait_for_request(self, request: Request,
+                                route_handler: Callable) -> Response:
+        try:
+            return await asyncio.wait_for(route_handler(request), timeout=TIMEOUT)
+        except asyncio.TimeoutError:
+            raise StarletteHTTPException(status_code=HTTP_504_GATEWAY_TIMEOUT,
+                                         detail='Request processing time excedeed limit')
 
     async def _logging_response(
             self, response: Response, record: dict) -> Optional[Response]:
