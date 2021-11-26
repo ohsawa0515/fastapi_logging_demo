@@ -1,14 +1,18 @@
 import boto3
+import time
+import asyncio
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from logging_context import LoggingContextRoute
 from botocore.exceptions import ClientError
+from timeout_middleware import TimeoutMiddleware
 
-
+REQUEST_TIMEOUT = 3
 S3_BUCKET = 'shu0515-fastapi-test'
 
 app = FastAPI()
 app.router.route_class = LoggingContextRoute
+app.add_middleware(TimeoutMiddleware, timeout=REQUEST_TIMEOUT)
 
 
 class Item(BaseModel):
@@ -88,3 +92,15 @@ def get_file(name: str, s3: S3 = Depends()):
         return {"message": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/sleep/{wait_time}")
+def wait_for(wait_time: int):
+    time.sleep(wait_time)
+    return {"Wait time(sec)": wait_time}
+
+
+@app.get("/async_sleep/{wait_time}")
+async def async_wait_for(wait_time: int):
+    await asyncio.sleep(wait_time)
+    return {"Wait time(sec)": wait_time}
