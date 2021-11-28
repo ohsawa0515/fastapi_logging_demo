@@ -1,4 +1,5 @@
 import boto3
+import os
 import time
 import asyncio
 from fastapi import FastAPI, HTTPException, Depends
@@ -7,7 +8,7 @@ from logging_context import LoggingContextRoute
 from botocore.exceptions import ClientError
 from timeout_middleware import TimeoutMiddleware
 
-REQUEST_TIMEOUT = 3
+REQUEST_TIMEOUT = os.getenv("REQUEST_TIMEOUT", 5)
 S3_BUCKET = 'shu0515-fastapi-test'
 
 app = FastAPI()

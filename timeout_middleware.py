@@ -13,9 +13,9 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
     if the request processing time is above a certain threshold
     """
 
-    def __init__(self, app: ASGIApp, timeout=10):
+    def __init__(self, app: ASGIApp, timeout: int = 10):
         super().__init__(app)
-        self.timeout = timeout
+        self.timeout = int(timeout)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         try:
