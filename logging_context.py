@@ -19,6 +19,9 @@ logger.setLevel(DEBUG)
 
 
 class LoggingContextRoute(APIRoute):
+    """
+    Custom router class that logs request and response body
+    """
 
     def get_route_handler(self) -> Callable:
         original_route_handler = super().get_route_handler()
@@ -28,7 +31,7 @@ class LoggingContextRoute(APIRoute):
             record = {}
             await self._logging_request(request, record)
 
-            # 処理にかかる時間を計測
+            # Measure the processing time
             before = time.time()
             try:
                 response = await self._execute_request(
@@ -62,20 +65,6 @@ class LoggingContextRoute(APIRoute):
             raise
         return response
 
-    async def _logging_response(
-            self, response: Response, record: dict) -> Optional[Response]:
-        if response is None:
-            return
-        try:
-            record["response_body"] = json.loads(response.body.decode("utf-8"))
-        except json.JSONDecodeError:
-            record["response_body"] = response.body.decode("utf-8")
-        record["status"] = response.status_code
-        record["response_headers"] = {
-            k.decode("utf-8"):
-            v.decode("utf-8") for (k, v) in response.headers.raw
-        }
-
     async def _logging_request(
             self, request: Request, record: dict) -> Optional[Response]:
         if await request.body():
@@ -90,3 +79,17 @@ class LoggingContextRoute(APIRoute):
         record["remote_addr"] = request.client.host
         record["request_uri"] = request.url.path
         record["request_method"] = request.method
+
+    async def _logging_response(
+            self, response: Response, record: dict) -> Optional[Response]:
+        if response is None:
+            return
+        try:
+            record["response_body"] = json.loads(response.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            record["response_body"] = response.body.decode("utf-8")
+        record["status"] = response.status_code
+        record["response_headers"] = {
+            k.decode("utf-8"):
+            v.decode("utf-8") for (k, v) in response.headers.raw
+        }
