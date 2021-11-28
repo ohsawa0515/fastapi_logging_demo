@@ -80,3 +80,11 @@ class TestApi:
         assert response.json() == {
             "message": "test foo",
         }
+
+    def test_sleep(self):
+        response = client.get("/sleep/3")
+        assert response.status_code == 504
+
+    def test_async_sleep(self):
+        response = client.get("/async_sleep/3")
+        assert response.status_code == 504
