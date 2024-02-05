@@ -1,4 +1,4 @@
-fastapi==0.65.2
+fastapi==0.109.1
 uvicorn[standard]==0.13.3
 pydantic==1.8.2
 botocore==1.21.21
